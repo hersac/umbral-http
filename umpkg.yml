@@ -1,0 +1,10 @@
+name: http
+version: 1.0.0
+description: proyecto de prueba
+umbral: '>=1.0.0'
+main: src/main.um
+scripts:
+  test: umbral pruebas/main.um
+  dev: umbral src/main.um --watch
+  start: umbral src/main.um
+dependencies: {}

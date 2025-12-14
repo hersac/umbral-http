@@ -1,0 +1,3 @@
+out f: fetch(url) {
+    r: (url);
+}
