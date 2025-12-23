@@ -1,3 +1,9 @@
-out f: fetch(url) {
-    r: (url);
-}
+equip { Request } origin 'Request.um';
+equip { Response } origin 'Response.um';
+equip { Router } origin 'Router.um';
+equip { Next } origin 'Next.um';
+
+out Request;
+out Response;
+out Router;
+out Next;
