@@ -1,126 +1,64 @@
+
 out cs: Request {
-    pr: url->Str;
-    pr: method->Str;
+    pr: url;
+    pr: method;
     pr: headers;
     pr: body;
     pr: params;
     pr: query;
 
-    pu f: Request(url->Str, method->Str) {
-        th.url = url;
-        th.method = method;
+    pu f: Request(u, m) {
+        th.url = u;
+        th.method = m;
         th.headers = ["Content-Type"=>"application/json"];
         th.body = null;
-        th.params = [""];
-        th.query = [""];
+        th.params = [];
+        th.query = [];
     }
 
-    pu asy f: get(url->Str, options) {
-        c: req = n: Request(url, "GET");
-        
-        i: (options != null) {
-            th.applyOptions(req, options);
-        }
-
+    pu asy f: get(url, options) {
+        v: req = n: Request(url, "GET");
         r: (awa req.execute());
     }
 
-    pu asy f: post(url->Str, data, options) {
-        c: req = n: Request(url, "POST");
+    pu asy f: post(url, data, options) {
+        v: req = n: Request(url, "POST");
         req.body = data;
-        
-        i: (options != null) {
-            i: (options["headers"] != null) {
-                req.headers = options["headers"];
-            }
-        }
-
         r: (awa req.execute());
     }
 
-    pu asy f: put(url->Str, data, options) {
-        c: req = n: Request(url, "PUT");
+    pu asy f: put(url, data, options) {
+        v: req = n: Request(url, "PUT");
         req.body = data;
-        
-        i: (options != null) {
-            i: (options["headers"] != null) {
-                req.headers = options["headers"];
-            }
-        }
-
         r: (awa req.execute());
     }
 
-    pu asy f: delete(url->Str, options) {
-        c: req = n: Request(url, "DELETE");
-        
-        i: (options != null) {
-            i: (options["headers"] != null) {
-                req.headers = options["headers"];
-            }
-        }
-
+    pu asy f: delete(url, options) {
+        v: req = n: Request(url, "DELETE");
         r: (awa req.execute());
     }
 
-    pu asy f: patch(url->Str, data, options) {
-        c: req = n: Request(url, "PATCH");
+    pu asy f: patch(url, data, options) {
+        v: req = n: Request(url, "PATCH");
         req.body = data;
-        
-        i: (options != null) {
-            i: (options["headers"] != null) {
-                req.headers = options["headers"];
-            }
-        }
-
         r: (awa req.execute());
     }
 
-    pu asy f: options(url->Str, options) {
-        c: req = n: Request(url, "OPTIONS");
-        
-        i: (options != null) {
-             th.applyOptions(req, options);
-        }
-
+    pu asy f: options(url, options) {
+        v: req = n: Request(url, "OPTIONS");
         r: (awa req.execute());
     }
 
     pr asy f: execute() {
-        tprint("Executing &th.method to &th.url");
+        tprint("Executing Request to " + th.url);
         r: (["status"=>200, "data"=>"Simulated response"]);
     }
 
-    pr f: applyOptions(req, options) {
-        i: (options["headers"] != null) {
-            req.headers = options["headers"];
-        }
-        i: (options["params"] != null) {
-            req.params = options["params"];
-        }
-    }
-
-    pr f: setHeader(key->Str, value->Str)->Void {
-        th.headers[key] = value;
-    }
-
-    pu f: setParam(key->Str, value->Str)->Void {
-        th.params[key] = value;
-    }
-
-    pu f: setQuery(key->Str, value->Str)->Void {
-        th.query[key] = value;
-    }
-
-    pu f: getHeader(key->Str)->Str {
-        r: (th.headers[key]);
-    }
-
-    pu f: getParam(key->Str)->Str {
-        r: (th.params[key]);
-    }
-
-    pu f: getQuery(key->Str)->Str {
-        r: (th.query[key]);
-    }
+    pr f: applyOptions(req, options) {}
+    pr f: setHeader(key, value) {}
+    pu f: setParam(key, value) {}
+    pu f: setQuery(key, value) {}
+    pu f: getHeader(key) { r: (null); }
+    pu f: getParam(key) { r: (null); }
+    pu f: getQuery(key) { r: (null); }
 }

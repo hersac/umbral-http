@@ -1,67 +1,42 @@
+
 out cs: Router {
     pr: routes;
 
     pu f: Router() {
-        th.routes = ["GET"=>[], "POST"=>[], "PUT"=>[], "DELETE"=>[], "PATCH"=>[], "OPTIONS"=>[]];
+        tprint("Router initialized");
     }
 
-    pu f: add(path->Str, method->Str, handler, middleware)->Void {
-        c: routeInfo = ["path"=>path, "handler"=>handler, "middleware"=>middleware];
-        
-        i: (th.routes[method] == null) {
-            th.routes[method] = [];
-        }
-        th.routes[method][path] = routeInfo;
+    pu f: add(path, method, handler, middleware) {
+        tprint("Adding route " + path);
     }
 
-    pu f: get(path->Str, handler, middleware)->Void {
+    pu f: get(path, handler, middleware) {
         th.add(path, "GET", handler, middleware);
     }
 
-    pu f: post(path->Str, handler, middleware)->Void {
+    pu f: post(path, handler, middleware) {
         th.add(path, "POST", handler, middleware);
     }
 
-    pu f: put(path->Str, handler, middleware)->Void {
+    pu f: put(path, handler, middleware) {
         th.add(path, "PUT", handler, middleware);
     }
 
-    pu f: delete(path->Str, handler, middleware)->Void {
+    pu f: delete(path, handler, middleware) {
         th.add(path, "DELETE", handler, middleware);
     }
 
-    pu f: patch(path->Str, handler, middleware)->Void {
+    pu f: patch(path, handler, middleware) {
         th.add(path, "PATCH", handler, middleware);
     }
 
-    pu f: options(path->Str, handler, middleware)->Void {
+    pu f: options(path, handler, middleware) {
         th.add(path, "OPTIONS", handler, middleware);
     }
 
-    pu asy f: execute(path->Str, method->Str, request) {
-        i: (th.routes[method] == null) {
-            r: (["error"=>"Method not supported"]);
-        }
-
-        c: routeInfo = th.routes[method][path];
-        
-        i: (routeInfo == null) {
-            r: (["error"=>"Route not found"]);
-        }
-
-        c: middlewarePassed = awa th.runMiddleware(routeInfo, request);
-        i: (middlewarePassed == false) {
-             r: (["error"=>"Middleware blocked request"]);
-        }
-
-        r: (awa routeInfo["handler"](request));
-    }
-
-    pr asy f: runMiddleware(routeInfo, request) {
-        i: (routeInfo["middleware"] == null) {
-            r: (true);
-        }
-        r: (awa routeInfo["middleware"](request));
+    pu asy f: execute(path, method, request) {
+        tprint("Execute " + path);
+        r: (["status"=>200]);
     }
 
     pu f: listRoutes() {

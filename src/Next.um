@@ -1,35 +1,23 @@
+
 out cs: Next {
-    pr: executed->Bool;
+    pr: called;
     pr: error;
 
     pu f: Next() {
-        th.executed = false;
+        th.called = false;
         th.error = null;
     }
 
-    pu f: continue()->Void {
-        th.executed = true;
+    pu f: continue() {
+        th.called = true;
     }
 
-    pu f: withError(error)->Void {
-        th.executed = true;
+    pu f: withError(error) {
+        th.called = true;
         th.error = error;
     }
 
-    pu f: wasExecuted()->Bool {
-        r: (th.executed);
-    }
-
-    pu f: hasError()->Bool {
-        r: (th.error != null);
-    }
-
-    pu f: getError() {
-        r: (th.error);
-    }
-
-    pu f: reset()->Void {
-        th.executed = false;
-        th.error = null;
+    pu f: wasCalled() {
+        r: (th.called);
     }
 }
