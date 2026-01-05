@@ -14,77 +14,122 @@ out cs: Response {
     }
 
     pu f: ok(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("OK"); };
+        v: msg = "OK";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(200, msg, data));
     }
 
     pu f: created(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Created"); };
+        v: msg = "Created";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(201, msg, data));
     }
 
     pu f: accepted(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Accepted"); };
+        v: msg = "Accepted";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(202, msg, data));
     }
 
     pu f: noContent(customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("No Content"); };
-        r: (n: Response(204, msg, nulo));
+        v: msg = "No Content";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
+        r: (n: Response(204, msg, null));
     }
 
     pu f: badRequest(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Bad Request"); };
+        v: msg = "Bad Request";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(400, msg, data));
     }
 
     pu f: unauthorized(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Unauthorized"); };
+        v: msg = "Unauthorized";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(401, msg, data));
     }
 
     pu f: forbidden(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Forbidden"); };
+        v: msg = "Forbidden";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(403, msg, data));
     }
 
     pu f: notFound(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Not Found"); };
+        v: msg = "Not Found";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(404, msg, data));
     }
 
     pu f: methodNotAllowed(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Method Not Allowed"); };
+        v: msg = "Method Not Allowed";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(405, msg, data));
     }
 
     pu f: conflict(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Conflict"); };
+        v: msg = "Conflict";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(409, msg, data));
     }
 
     pu f: internalServerError(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Internal Server Error"); };
+        v: msg = "Internal Server Error";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(500, msg, data));
     }
 
     pu f: notImplemented(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Not Implemented"); };
+        v: msg = "Not Implemented";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(501, msg, data));
     }
 
     pu f: serviceUnavailable(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Service Unavailable"); };
+        v: msg = "Service Unavailable";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(503, msg, data));
     }
 
     pu f: gatewayTimeout(data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Gateway Timeout"); };
+        v: msg = "Gateway Timeout";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(504, msg, data));
     }
 
     pu f: status(code->Int, data, customMessage->Str)->Response {
-        c: msg = i: (customMessage != nulo) { r: (customMessage); } e: { r: ("Custom Response"); };
+        v: msg = "Custom Response";
+        i: (customMessage != null) {
+            msg = customMessage;
+        }
         r: (n: Response(code, msg, data));
     }
 }

@@ -3,16 +3,16 @@ out cs: Next {
     pr: error;
 
     pu f: Next() {
-        th.executed = falso;
-        th.error = nulo;
+        th.executed = false;
+        th.error = null;
     }
 
     pu f: continue()->Void {
-        th.executed = verdadero;
+        th.executed = true;
     }
 
     pu f: withError(error)->Void {
-        th.executed = verdadero;
+        th.executed = true;
         th.error = error;
     }
 
@@ -21,7 +21,7 @@ out cs: Next {
     }
 
     pu f: hasError()->Bool {
-        r: (th.error != nulo);
+        r: (th.error != null);
     }
 
     pu f: getError() {
@@ -29,7 +29,7 @@ out cs: Next {
     }
 
     pu f: reset()->Void {
-        th.executed = falso;
-        th.error = nulo;
+        th.executed = false;
+        th.error = null;
     }
 }

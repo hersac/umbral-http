@@ -1,16 +1,16 @@
 out cs: Request {
-    pu: url->Str;
-    pu: method->Str;
-    pu: headers;
-    pu: body;
-    pu: params;
-    pu: query;
+    pr: url->Str;
+    pr: method->Str;
+    pr: headers;
+    pr: body;
+    pr: params;
+    pr: query;
 
     pu f: Request(url->Str, method->Str) {
         th.url = url;
         th.method = method;
         th.headers = ["Content-Type"=>"application/json"];
-        th.body = nulo;
+        th.body = null;
         th.params = [""];
         th.query = [""];
     }
@@ -18,13 +18,8 @@ out cs: Request {
     pu asy f: get(url->Str, options) {
         c: req = n: Request(url, "GET");
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
-                req.headers = options["headers"];
-            }
-            i: (options["params"] != nulo) {
-                req.params = options["params"];
-            }
+        i: (options != null) {
+            th.applyOptions(req, options);
         }
 
         r: (awa req.execute());
@@ -34,8 +29,8 @@ out cs: Request {
         c: req = n: Request(url, "POST");
         req.body = data;
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
+        i: (options != null) {
+            i: (options["headers"] != null) {
                 req.headers = options["headers"];
             }
         }
@@ -47,8 +42,8 @@ out cs: Request {
         c: req = n: Request(url, "PUT");
         req.body = data;
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
+        i: (options != null) {
+            i: (options["headers"] != null) {
                 req.headers = options["headers"];
             }
         }
@@ -59,8 +54,8 @@ out cs: Request {
     pu asy f: delete(url->Str, options) {
         c: req = n: Request(url, "DELETE");
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
+        i: (options != null) {
+            i: (options["headers"] != null) {
                 req.headers = options["headers"];
             }
         }
@@ -72,8 +67,8 @@ out cs: Request {
         c: req = n: Request(url, "PATCH");
         req.body = data;
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
+        i: (options != null) {
+            i: (options["headers"] != null) {
                 req.headers = options["headers"];
             }
         }
@@ -84,10 +79,8 @@ out cs: Request {
     pu asy f: options(url->Str, options) {
         c: req = n: Request(url, "OPTIONS");
         
-        i: (options != nulo) {
-            i: (options["headers"] != nulo) {
-                req.headers = options["headers"];
-            }
+        i: (options != null) {
+             th.applyOptions(req, options);
         }
 
         r: (awa req.execute());
@@ -98,7 +91,16 @@ out cs: Request {
         r: (["status"=>200, "data"=>"Simulated response"]);
     }
 
-    pu f: setHeader(key->Str, value->Str)->Void {
+    pr f: applyOptions(req, options) {
+        i: (options["headers"] != null) {
+            req.headers = options["headers"];
+        }
+        i: (options["params"] != null) {
+            req.params = options["params"];
+        }
+    }
+
+    pr f: setHeader(key->Str, value->Str)->Void {
         th.headers[key] = value;
     }
 

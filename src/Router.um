@@ -2,17 +2,16 @@ out cs: Router {
     pr: routes;
 
     pu f: Router() {
-        th.routes = {"GET"=>[""], "POST"=>[""], "PUT"=>[""], "DELETE"=>[""], "PATCH"=>[""], "OPTIONS"=>[""]};
+        th.routes = ["GET"=>[], "POST"=>[], "PUT"=>[], "DELETE"=>[], "PATCH"=>[], "OPTIONS"=>[]];
     }
 
     pu f: add(path->Str, method->Str, handler, middleware)->Void {
         c: routeInfo = ["path"=>path, "handler"=>handler, "middleware"=>middleware];
         
-        i: (th.routes[method] == nulo) {
-            th.routes[method] = {"":routeInfo};
-        } e: {
-            th.routes[method][path] = routeInfo;
+        i: (th.routes[method] == null) {
+            th.routes[method] = [];
         }
+        th.routes[method][path] = routeInfo;
     }
 
     pu f: get(path->Str, handler, middleware)->Void {
@@ -40,24 +39,29 @@ out cs: Router {
     }
 
     pu asy f: execute(path->Str, method->Str, request) {
-        i: (th.routes[method] == nulo) {
+        i: (th.routes[method] == null) {
             r: (["error"=>"Method not supported"]);
         }
 
         c: routeInfo = th.routes[method][path];
         
-        i: (routeInfo == nulo) {
+        i: (routeInfo == null) {
             r: (["error"=>"Route not found"]);
         }
 
-        i: (routeInfo["middleware"] != nulo) {
-            c: middlewareResult = awa routeInfo["middleware"](request);
-            i: (middlewareResult == falso) {
-                r: (["error"=>"Middleware blocked request"]);
-            }
+        c: middlewarePassed = awa th.runMiddleware(routeInfo, request);
+        i: (middlewarePassed == false) {
+             r: (["error"=>"Middleware blocked request"]);
         }
 
         r: (awa routeInfo["handler"](request));
+    }
+
+    pr asy f: runMiddleware(routeInfo, request) {
+        i: (routeInfo["middleware"] == null) {
+            r: (true);
+        }
+        r: (awa routeInfo["middleware"](request));
     }
 
     pu f: listRoutes() {
