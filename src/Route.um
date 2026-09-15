@@ -1,0 +1,95 @@
+!!$
+ $ A chained route bound to a single path on its owner Router.
+ $ Returned by Router.route(). Verbs register on the owner and
+ $ return th so calls can be chained.
+ $ Example: router.route("/login").post(employeeController);
+ $!!
+
+out cs: Route {
+    !!$
+     $ Route path (example: "/login").
+    $!!
+    pr: path->Str;
+
+    !!$
+     $ Owner Router receiving the registrations.
+    $!!
+    pr: owner;
+
+    !!$
+     $ Marker identifying Route instances.
+    $!!
+    pr: isRoute;
+
+    !!$
+     $ Creates a route for path on owner Router.
+     $ @param->[Str] path - Route path (example: "/login").
+     $ @param owner - Router that owns this route.
+     $ @returns->[Route] The new Route.
+    $!!
+    pu f: Route(path->Str, owner) {
+        th.path = path;
+        th.owner = owner;
+        th.isRoute = true;
+    }
+
+    !!$
+     $ Registers a GET handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: get(...handlers)->Route {
+        th.owner.addVerb(th.path, "GET", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a POST handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: post(...handlers)->Route {
+        th.owner.addVerb(th.path, "POST", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a PUT handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: put(...handlers)->Route {
+        th.owner.addVerb(th.path, "PUT", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a DELETE handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: delete(...handlers)->Route {
+        th.owner.addVerb(th.path, "DELETE", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a PATCH handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: patch(...handlers)->Route {
+        th.owner.addVerb(th.path, "PATCH", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers an OPTIONS handler for this route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Route] The same Route for chaining.
+    $!!
+    pu f: options(...handlers)->Route {
+        th.owner.addVerb(th.path, "OPTIONS", handlers);
+        r: (th);
+    }
+}

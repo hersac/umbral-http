@@ -1,0 +1,53 @@
+!! Zero-config middlewares, Express style.
+!! Register them globally or per route:
+!!   router.run("/api", cors, apiRouter);
+!!   router.get("/admin", logger, adminController);
+!! Per-route options are not possible: Umbral has no closures, so a
+!! factory like cors(options) cannot capture its config. Tune behavior
+!! with explicit routes (example: OPTIONS handlers) or, once available,
+!! through the serve() options entry.
+
+!!$
+ $ Logs method and url with a timestamp.
+ $ @param req - Request instance.
+ $ @param res - Response instance.
+ $ @param next - Next instance.
+ $ @returns->[Bool] True to continue the chain.
+$!!
+out f: logger(req, res, next) {
+    v: stamp = Std.timestamp();
+    tprint("[http] &stamp &req.method &req.url");
+    r: (true);
+}
+
+!!$
+ $ Sets permissive CORS headers with open defaults.
+ $ Preflight short-circuit needs an explicit OPTIONS route or
+ $ server level support: this middleware only sets headers and
+ $ always continues the chain.
+ $ @param req - Request instance.
+ $ @param res - Response instance.
+ $ @param next - Next instance.
+ $ @returns->[Bool] True to continue the chain.
+$!!
+out f: cors(req, res, next) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    r: (true);
+}
+
+!!$
+ $ Sets baseline security headers, helmet style.
+ $ @param req - Request instance.
+ $ @param res - Response instance.
+ $ @param next - Next instance.
+ $ @returns->[Bool] True to continue the chain.
+$!!
+out f: securityHeaders(req, res, next) {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    r: (true);
+}

@@ -1,64 +1,141 @@
+!!$
+ $ Incoming HTTP message built by the server per accepted socket and
+ $ passed to Router.execute(), which fills route params via setParam().
+ $ Outgoing calls to external APIs use the native pulse client
+ $ directly: c: res = awa: pulse(url, "GET");
+ $ Header pairs use static "name"/"value" keys because dictionaries
+ $ are immutable in Umbral: entries accumulate in a list.
+ $ Query and path params are QueryParams/PathParams instances so
+ $ typed annotations validate: c: filters->QueryParams = req.query;
+ $!!
+
+equip { QueryParams, PathParams } origin 'Types.um';
 
 out cs: Request {
-    pr: url;
-    pr: method;
+    !!$
+     $ Server path (example: "/users/42").
+    $!!
+    pr: url->Str;
+
+    !!$
+     $ HTTP verb in uppercase.
+    $!!
+    pr: method->Str;
+
+    !!$
+     $ Header pairs as a list of ["name" => ..., "value" => ...] entries.
+    $!!
     pr: headers;
+
+    !!$
+     $ Body data, or null.
+    $!!
     pr: body;
+
+    !!$
+     $ Route params as a PathParams instance.
+    $!!
     pr: params;
+
+    !!$
+     $ Query values as a QueryParams instance.
+    $!!
     pr: query;
 
-    pu f: Request(u, m) {
-        th.url = u;
-        th.method = m;
-        th.headers = ["Content-Type"=>"application/json"];
+    !!$
+     $ Creates an incoming request message.
+     $ @param->[Str] url - Server path (example: "/users/42").
+     $ @param->[Str] method - HTTP verb in uppercase.
+    $!!
+    pu f: Request(url->Str, method->Str) {
+        th.url = url;
+        th.method = method;
+        th.headers = {};
         th.body = null;
-        th.params = [];
-        th.query = [];
+        th.params = n: PathParams();
+        th.query = n: QueryParams();
     }
 
-    pu asy f: get(url, options) {
-        v: req = n: Request(url, "GET");
-        r: (awa req.execute());
+    !!$
+     $ Appends a header pair. Duplicates allowed (example: Set-Cookie).
+     $ @param->[Str] name - Header name.
+     $ @param->[Str] value - Header value.
+     $ @returns->[Request] The same Request for chaining.
+    $!!
+    pu f: setHeader(name->Str, value->Str)->Request {
+        th.headers = th.headers + {[ "name" => name, "value" => value ]};
+        r: (th);
     }
 
-    pu asy f: post(url, data, options) {
-        v: req = n: Request(url, "POST");
-        req.body = data;
-        r: (awa req.execute());
+    !!$
+     $ Looks up a header value by name.
+     $ @param->[Str] name - Header name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: getHeader(name->Str) {
+        fe: (v: entry <= th.headers) {
+            i: (entry.name == name) {
+                r: (entry.value);
+            }
+        }
+        r: (null);
     }
 
-    pu asy f: put(url, data, options) {
-        v: req = n: Request(url, "PUT");
-        req.body = data;
-        r: (awa req.execute());
+    !!$
+     $ Stores a route param (used by the router for ":param" segments).
+     $ @param->[Str] name - Param name.
+     $ @param value - Param value.
+     $ @returns->[Request] The same Request for chaining.
+    $!!
+    pu f: setParam(name->Str, value)->Request {
+        th.params.set(name, value);
+        r: (th);
     }
 
-    pu asy f: delete(url, options) {
-        v: req = n: Request(url, "DELETE");
-        r: (awa req.execute());
+    !!$
+     $ Looks up a route param by name.
+     $ @param->[Str] name - Param name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: getParam(name->Str) {
+        r: (th.params.get(name));
     }
 
-    pu asy f: patch(url, data, options) {
-        v: req = n: Request(url, "PATCH");
-        req.body = data;
-        r: (awa req.execute());
+    !!$
+     $ Stores a query value.
+     $ @param->[Str] name - Query name.
+     $ @param value - Query value.
+     $ @returns->[Request] The same Request for chaining.
+    $!!
+    pu f: setQuery(name->Str, value)->Request {
+        th.query.set(name, value);
+        r: (th);
     }
 
-    pu asy f: options(url, options) {
-        v: req = n: Request(url, "OPTIONS");
-        r: (awa req.execute());
+    !!$
+     $ Looks up a query value by name.
+     $ @param->[Str] name - Query name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: getQuery(name->Str) {
+        r: (th.query.get(name));
     }
 
-    pr asy f: execute() {
-        tprint("Executing Request to " + th.url);
-        r: (["status"=>200, "data"=>"Simulated response"]);
+    !!$
+     $ Replaces the body.
+     $ @param body - Body data.
+     $ @returns->[Request] The same Request for chaining.
+    $!!
+    pu f: setBody(body)->Request {
+        th.body = body;
+        r: (th);
     }
 
-    pr f: applyOptions(req, options) {}
-    pr f: setHeader(key, value) {}
-    pu f: setParam(key, value) {}
-    pu f: setQuery(key, value) {}
-    pu f: getHeader(key) { r: (null); }
-    pu f: getParam(key) { r: (null); }
-    pu f: getQuery(key) { r: (null); }
+    !!$
+     $ Reads the body.
+     $ @returns The body, or null when missing.
+    $!!
+    pu f: getBody() {
+        r: (th.body);
+    }
 }

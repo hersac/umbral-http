@@ -1,0 +1,179 @@
+!!$
+ $ Shared HTTP types.
+ $ QueryParams and PathParams wrap entries in a list because
+ $ dictionaries are immutable in Umbral. Annotating with these
+ $ classes validates correctly, unlike raw lists.
+ $ Example:
+ $   c: filters->QueryParams = req.query;
+ $!!
+
+out cs: QueryParams {
+    !!$
+     $ Entries as a list of ["name" => ..., "value" => ...] pairs.
+    $!!
+    pr: entries;
+
+    !!$
+     $ Creates empty query params.
+    $!!
+    pu f: QueryParams() {
+        th.entries = {};
+    }
+
+    !!$
+     $ Stores a value.
+     $ @param->[Str] name - Entry name.
+     $ @param value - Entry value.
+     $ @returns->[QueryParams] The same QueryParams for chaining.
+    $!!
+    pu f: set(name->Str, value)->QueryParams {
+        th.entries = th.entries + {[ "name" => name, "value" => value ]};
+        r: (th);
+    }
+
+    !!$
+     $ Looks up a value by name.
+     $ @param->[Str] name - Entry name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: get(name->Str) {
+        fe: (v: item <= th.entries) {
+            i: (item.name == name) {
+                r: (item.value);
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Checks presence by name.
+     $ @param->[Str] name - Entry name.
+     $ @returns->[Bool] True when present.
+    $!!
+    pu f: has(name->Str) {
+        fe: (v: item <= th.entries) {
+            i: (item.name == name) {
+                r: (true);
+            }
+        }
+        r: (false);
+    }
+
+    !!$
+     $ Returns all entries as a list.
+     $ @returns The entry list.
+    $!!
+    pu f: all() {
+        r: (th.entries);
+    }
+}
+
+!!$
+ $ Path params filled by the router for ":param" segments.
+ $ Access with get("id").
+$!!
+
+out cs: PathParams {
+    !!$
+     $ Entries as a list of ["name" => ..., "value" => ...] pairs.
+    $!!
+    pr: entries;
+
+    !!$
+     $ Creates empty path params. Filled by the router
+     $ for ":param" segments. Access with get("id").
+    $!!
+    pu f: PathParams() {
+        th.entries = {};
+    }
+
+    !!$
+     $ Stores a value.
+     $ @param->[Str] name - Entry name.
+     $ @param value - Entry value.
+     $ @returns->[PathParams] The same PathParams for chaining.
+    $!!
+    pu f: set(name->Str, value)->PathParams {
+        th.entries = th.entries + {[ "name" => name, "value" => value ]};
+        r: (th);
+    }
+
+    !!$
+     $ Looks up a value by name.
+     $ @param->[Str] name - Entry name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: get(name->Str) {
+        fe: (v: item <= th.entries) {
+            i: (item.name == name) {
+                r: (item.value);
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Checks presence by name.
+     $ @param->[Str] name - Entry name.
+     $ @returns->[Bool] True when present.
+    $!!
+    pu f: has(name->Str) {
+        fe: (v: item <= th.entries) {
+            i: (item.name == name) {
+                r: (true);
+            }
+        }
+        r: (false);
+    }
+
+    !!$
+     $ Returns all entries as a list.
+     $ @returns The entry list.
+    $!!
+    pu f: all() {
+        r: (th.entries);
+    }
+}
+
+!!$
+ $ HTTP error value to throw with tw: or to pass to next.withError().
+ $ Example: tw: n: HttpError(404, "User not found", null);
+$!!
+
+out cs: HttpError {
+    !!$
+     $ HTTP status code.
+    $!!
+    pr: status->Int;
+
+    !!$
+     $ Error message.
+    $!!
+    pr: message->Str;
+
+    !!$
+     $ Extra details, or null.
+    $!!
+    pr: details;
+
+    !!$
+     $ Creates an HTTP error to throw with tw:.
+     $ Example: tw: n: HttpError(404, "User not found", null);
+     $ @param status - HTTP status code.
+     $ @param message - Error message.
+     $ @param details - Extra details or null.
+    $!!
+    pu f: HttpError(status->Int, message->Str, details) {
+        th.status = status;
+        th.message = message;
+        th.details = details;
+    }
+
+    !!$
+     $ Serializes the error.
+     $ @returns The error entry.
+    $!!
+    pu f: toJson() {
+        r: (["status" => th.status, "message" => th.message, "details" => th.details]);
+    }
+}

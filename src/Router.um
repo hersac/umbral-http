@@ -1,45 +1,442 @@
+!!$
+ $ Express-style router for Umbral.
+ $ Supports chained routes via route(), sub-router mounting via run()
+ $ (equivalent to use in Express) and verb helpers.
+ $ Each file defines a modular use case: import Router, instantiate it,
+ $ register routes and mount it elsewhere.
+ $ Example:
+ $   c: router->Router = n: Router();
+ $   router.route("/login").post(employeeController);
+ $   router.run("/parameters", parametersRouter);
+ $   router.run("/api", internalsRoutes);
+ $!!
+
+equip { Route } origin 'Route.um';
+equip { Response } origin 'Response.um';
+equip { Next } origin 'Next.um';
 
 out cs: Router {
+    !!$
+     $ Local route entries as a list of path/method/handler/middlewares entries.
+    $!!
     pr: routes;
 
+    !!$
+     $ Mounted sub-routers as a list of prefix/router/middlewares entries.
+    $!!
+    pr: mounts;
+
+    !!$
+     $ Name prefix, informational only. Mount prefixes come from run().
+    $!!
+    pr: prefix->Str;
+
+    !!$
+     $ Marker checked by run() to tell routers from middlewares.
+    $!!
+    pr: isRouter;
+
+    !!$
+     $ Creates an empty router.
+    $!!
     pu f: Router() {
-        tprint("Router initialized");
+        th.routes = {};
+        th.mounts = {};
+        th.prefix = "";
+        th.isRouter = true;
     }
 
-    pu f: add(path, method, handler, middleware) {
-        tprint("Adding route " + path);
+    !!$
+     $ Creates an empty router with a name prefix (informational).
+     $ @param prefix - Router name prefix (example: "/api").
+    $!!
+    pu f: Router(prefix->Str) {
+        th.routes = {};
+        th.mounts = {};
+        th.prefix = prefix;
+        th.isRouter = true;
     }
 
-    pu f: get(path, handler, middleware) {
-        th.add(path, "GET", handler, middleware);
+    !!$
+     $ Starts a chained route for path.
+     $ @param->[Str] path - Route path (example: "/login").
+     $ @returns->[Route] A Route bound to this router.
+    $!!
+    pu f: route(path->Str)->Route {
+        r: (n: Route(path, th));
     }
 
-    pu f: post(path, handler, middleware) {
-        th.add(path, "POST", handler, middleware);
+    !!$
+     $ Registers a handler entry.
+     $ @param->[Str] path - Route path, supports ":param" segments.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param handler - Function called with the request.
+     $ @param middlewares - List of middleware functions.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: add(path->Str, method->Str, handler, middlewares)->Router {
+        th.routes = th.routes + {[ "path" => path, "method" => method, "handler" => handler, "middlewares" => middlewares ]};
+        r: (th);
     }
 
-    pu f: put(path, handler, middleware) {
-        th.add(path, "PUT", handler, middleware);
+    !!$
+     $ Registers a GET handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: get(path->Str, ...handlers)->Router {
+        th.addVerb(path, "GET", handlers);
+        r: (th);
     }
 
-    pu f: delete(path, handler, middleware) {
-        th.add(path, "DELETE", handler, middleware);
+    !!$
+     $ Registers a POST handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: post(path->Str, ...handlers)->Router {
+        th.addVerb(path, "POST", handlers);
+        r: (th);
     }
 
-    pu f: patch(path, handler, middleware) {
-        th.add(path, "PATCH", handler, middleware);
+    !!$
+     $ Registers a PUT handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: put(path->Str, ...handlers)->Router {
+        th.addVerb(path, "PUT", handlers);
+        r: (th);
     }
 
-    pu f: options(path, handler, middleware) {
-        th.add(path, "OPTIONS", handler, middleware);
+    !!$
+     $ Registers a DELETE handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: delete(path->Str, ...handlers)->Router {
+        th.addVerb(path, "DELETE", handlers);
+        r: (th);
     }
 
-    pu asy f: execute(path, method, request) {
-        tprint("Execute " + path);
-        r: (["status"=>200]);
+    !!$
+     $ Registers a PATCH handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: patch(path->Str, ...handlers)->Router {
+        th.addVerb(path, "PATCH", handlers);
+        r: (th);
     }
 
+    !!$
+     $ Registers an OPTIONS handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: options(path->Str, ...handlers)->Router {
+        th.addVerb(path, "OPTIONS", handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Splits handlers into middlewares plus the last handler, Express order.
+     $ @param->[Str] path - Route path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param handlers - Middlewares first, handler last.
+     $ @throws Fails when no handler is given.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pr f: addVerb(path->Str, method->Str, handlers)->Router {
+        v: total = handlers.len();
+        i: (total == 0) {
+            tw: "verb requires at least one handler";
+        } e: {
+            v: realHandler = handlers[total - 1];
+            v: mids = {};
+            fo: (v: i = 0; i < total - 1; i++) {
+                mids = mids + {handlers[i]};
+            }
+            th.add(path, method, realHandler, mids);
+        }
+        r: (th);
+    }
+
+    !!$
+     $ Mounts a sub-router, equivalent to use in Express.
+     $ Valid shapes: run(childRouter), run(path, childRouter),
+     $ run(path, middleware, childRouter). The path, when present,
+     $ always comes first. Middlewares are only allowed after a path.
+     $ The child Router is always the last argument.
+     $ @param args - Rest list: optional path, middlewares, child Router.
+     $ @throws Fails on empty args, non-Router last arg, or path not first.
+     $ @returns->[Router] The same Router for chaining.
+    $!!
+    pu f: run(...args)->Router {
+        v: total = args.len();
+        i: (total == 0) {
+            tw: "run requires at least one Router argument";
+        } e: {
+            v: target = args[total - 1];
+            i: (target.isRouter != true) {
+                tw: "run requires a Router as the last argument";
+            } e: {
+                i: (total == 1) {
+                    th.mounts = th.mounts + {[ "prefix" => "", "router" => target, "middlewares" => {} ]};
+                } e: {
+                    v: base = args[0];
+                    i: (Std.starts_with(base, "/") != true) {
+                        tw: "run requires a path starting with '/' as the first argument";
+                    } e: {
+                        v: mids = {};
+                        fo: (v: i = 1; i < total - 1; i++) {
+                            mids = mids + {args[i]};
+                        }
+                        th.mounts = th.mounts + {[ "prefix" => base, "router" => target, "middlewares" => mids ]};
+                    }
+                }
+            }
+        }
+        r: (th);
+    }
+
+    !!$
+     $ Dispatches a request: local routes first, then mounted routers.
+     $ Handlers and middlewares run as fn(request, res, next) and may be
+     $ sync or async. A thrown error becomes a 500 entry. When the
+     $ handler returns null, the shared res entry is used.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param request - Request instance passed to handlers.
+     $ @returns The handler result, the res entry, or a 404 entry.
+    $!!
+    pu asy f: execute(path->Str, method->Str, request) {
+        v: res = n: Response();
+        v: next = n: Next();
+        v: result = awa: th.resolve(path, method, request, res, next);
+        i: (result != null) {
+            r: (result);
+        }
+        r: (["code" => 404, "message" => "Not Found", "data" => null]);
+    }
+
+    !!$
+     $ Lists registered local routes.
+     $ @returns The route entry list.
+    $!!
     pu f: listRoutes() {
         r: (th.routes);
+    }
+
+    !!$
+     $ Resolves a dispatch: local routes first, then mounted routers.
+     $ When the handler returns null, the shared res entry is used.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param request - Request instance.
+     $ @param res - Shared Response instance.
+     $ @param next - Shared Next instance.
+     $ @returns The handler result, the res entry, or null when unmatched.
+    $!!
+    pr asy f: resolve(path->Str, method->Str, request, res, next) {
+        v: hit = th.find(path, method, request);
+        i: (hit != null) {
+            v: route = hit.route;
+            v: entryRequest = hit.request;
+            v: routeMws = route.middlewares;
+            v: blocked = awa: th.runGuards(routeMws, entryRequest, res, next);
+            i: (blocked != null) {
+                r: (blocked);
+            }
+            v: handlerFn = route.handler;
+            v: done = awa: th.invoke(handlerFn, entryRequest, res, next);
+            i: (done.failed == true) {
+                r: (done.value);
+            }
+            i: (done.value != null) {
+                r: (done.value);
+            }
+            r: (res.toJson());
+        }
+        v: delegated = awa: th.delegate(path, method, request, res, next);
+        i: (delegated != null) {
+            r: (delegated);
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Finds the first route matching method and path.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param request - Request instance filled with ":param" values.
+     $ @returns A route/request entry, or null when unmatched.
+    $!!
+    pr f: find(path->Str, method->Str, request) {
+        fe: (v: candidate <= th.routes) {
+            i: (candidate.method == method) {
+                v: matched = th.matchPath(candidate.path, path, request);
+                i: (matched == true) {
+                    r: (["route" => candidate, "request" => request]);
+                }
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Matches a pattern with ":param" segments against a path.
+     $ Params apply to the request only on full match.
+     $ @param->[Str] pattern - Route pattern (example: "/users/:id").
+     $ @param->[Str] path - Request path.
+     $ @param request - Request instance receiving the params.
+     $ @returns->[Bool] True on full match.
+    $!!
+    pr f: matchPath(pattern->Str, path->Str, request) {
+        v: patternParts = Std.split(pattern, "/");
+        v: pathParts = Std.split(path, "/");
+        i: (Std.len(patternParts) != Std.len(pathParts)) {
+            r: (false);
+        }
+        v: count = Std.len(patternParts);
+        v: paramNames = {};
+        v: paramValues = {};
+        fo: (v: i = 0; i < count; i++) {
+            v: template = patternParts[i];
+            v: segment = pathParts[i];
+            i: (Std.starts_with(template, ":") == true) {
+                v: rawName = Std.replace(template, ":", "");
+                v: paramName = Std.trim(rawName);
+                paramNames = paramNames + {paramName};
+                paramValues = paramValues + {segment};
+            } ie: (template != segment) {
+                r: (false);
+            }
+        }
+        v: totalParams = Std.len(paramNames);
+        fo: (v: j = 0; j < totalParams; j++) {
+            request.setParam(paramNames[j], paramValues[j]);
+        }
+        r: (true);
+    }
+
+    !!$
+     $ Delegates to mounted sub-routers by prefix.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param request - Request instance.
+     $ @param res - Shared Response instance.
+     $ @param next - Shared Next instance.
+     $ @returns The child result, or null when no mount matches.
+    $!!
+    pr asy f: delegate(path->Str, method->Str, request, res, next) {
+        fe: (v: mountEntry <= th.mounts) {
+            v: subpath = th.stripPrefix(path, mountEntry.prefix);
+            i: (subpath != null) {
+                v: mountMws = mountEntry.middlewares;
+                v: blocked = awa: th.runGuards(mountMws, request, res, next);
+                i: (blocked != null) {
+                    r: (blocked);
+                }
+                v: child = mountEntry.router;
+                v: outcome = awa: child.resolve(subpath, method, request, res, next);
+                i: (outcome != null) {
+                    r: (outcome);
+                }
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Runs middlewares in order. False blocks with 403, a failure returns 500.
+     $ @param mws - Middleware list.
+     $ @param request - Request instance.
+     $ @param res - Shared Response instance.
+     $ @param next - Shared Next instance.
+     $ @returns A blocking entry, or null to continue.
+    $!!
+    pr asy f: runGuards(mws, request, res, next) {
+        fe: (v: guard <= mws) {
+            v: step = awa: th.invoke(guard, request, res, next);
+            i: (step.failed == true) {
+                r: (step.value);
+            }
+            i: (step.value == false) {
+                r: (["code" => 403, "message" => "Forbidden", "data" => null]);
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Runs one middleware or handler with an error boundary.
+     $ A throw becomes a 500 entry; next.withError() also becomes 500.
+     $ @param fn - Function called as fn(request, res, next).
+     $ @param request - Request instance.
+     $ @param res - Shared Response instance.
+     $ @param next - Shared Next instance.
+     $ @returns An entry with failed flag plus value.
+    $!!
+    pr asy f: invoke(fn, request, res, next) {
+        v: value = null;
+        v: failed = false;
+        tr: {
+            v: callResult = awa: fn(request, res, next);
+            value = callResult;
+        } ct: (v: caught) {
+            failed = true;
+            value = ["code" => 500, "message" => "Internal Error", "data" => null];
+        }
+        i: (failed != true) {
+            i: (next.hasError() == true) {
+                failed = true;
+                value = ["code" => 500, "message" => "Internal Error", "data" => next.getError()];
+            }
+        }
+        r: (["failed" => failed, "value" => value]);
+    }
+
+    !!$
+     $ Strips a mount prefix from a path.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] prefix - Mount prefix, or "" for bare mounts.
+     $ @returns The sub path, or null when outside the prefix.
+    $!!
+    pr f: stripPrefix(path->Str, prefix->Str) {
+        i: (prefix == "") {
+            r: (path);
+        }
+        i: (path == prefix) {
+            r: ("/");
+        }
+        v: head = prefix + "/";
+        i: (Std.starts_with(path, head) != true) {
+            r: (null);
+        }
+        v: pathParts = Std.split(path, "/");
+        v: prefixParts = Std.split(prefix, "/");
+        v: skip = Std.len(prefixParts);
+        v: total = Std.len(pathParts);
+        v: built = "";
+        fo: (v: i = skip; i < total; i++) {
+            built = built + "/" + pathParts[i];
+        }
+        i: (built == "") {
+            r: ("/");
+        }
+        r: (built);
     }
 }

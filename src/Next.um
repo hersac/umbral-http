@@ -1,23 +1,77 @@
+!!$
+ $ Flow control for the middleware chain.
+ $ Handlers and middlewares receive one per request as fn(request, res, next).
+ $ Signal a failure with withError() to turn the dispatch into a 500 entry.
+$!!
 
 out cs: Next {
+    !!$
+     $ True once continue() or withError() ran.
+    $!!
     pr: called;
+
+    !!$
+     $ Stored error value, or null when clean.
+    $!!
     pr: error;
 
+    !!$
+     $ Creates a clean Next.
+    $!!
     pu f: Next() {
         th.called = false;
         th.error = null;
     }
 
+    !!$
+     $ Marks the chain as continued.
+     $ @returns The same Next for chaining.
+    $!!
     pu f: continue() {
         th.called = true;
     }
 
+    !!$
+     $ Marks the chain as failed with an error value.
+     $ @param error - Error value (example: HttpError or text).
+     $ @returns The same Next for chaining.
+    $!!
     pu f: withError(error) {
         th.called = true;
         th.error = error;
     }
 
+    !!$
+     $ Checks whether continue() or withError() ran.
+     $ @returns->[Bool] True when already signalled.
+    $!!
     pu f: wasCalled() {
         r: (th.called);
+    }
+
+    !!$
+     $ Checks whether an error was stored.
+     $ @returns->[Bool] True when withError() ran.
+    $!!
+    pu f: hasError() {
+        r: (th.error != null);
+    }
+
+    !!$
+     $ Reads the stored error.
+     $ @returns The error value, or null when clean.
+    $!!
+    pu f: getError() {
+        r: (th.error);
+    }
+
+    !!$
+     $ Resets to the clean state.
+     $ @returns The same Next for chaining.
+    $!!
+    pu f: reset() {
+        th.called = false;
+        th.error = null;
+        r: (th);
     }
 }

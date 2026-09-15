@@ -1,18 +1,130 @@
+!!$
+ $ Per-request HTTP response, Express style.
+ $ The router creates one per dispatch and passes it as
+ $ fn(request, res, next). Mutate it with status()/json()/send()
+ $ and header pairs, then return null to send its entry.
+$!!
+
 out cs: Response {
+    !!$
+     $ HTTP status code.
+    $!!
     pr: code->Int;
+
+    !!$
+     $ Status message.
+    $!!
     pr: message->Str;
+
+    !!$
+     $ Body data (entry, list or text).
+    $!!
     pr: data;
 
+    !!$
+     $ Header pairs as a list of ["name" => ..., "value" => ...] entries.
+    $!!
+    pr: headers;
+
+    !!$
+     $ Creates an empty 200 OK response for the current request.
+     $ Handlers receive one per request: res.status(200, body);
+    $!!
+    pu f: Response() {
+        th.code = 200;
+        th.message = "OK";
+        th.data = null;
+        th.headers = {};
+    }
+
+    !!$
+     $ Creates a response with explicit values.
+     $ @param->[Int] code - HTTP status code.
+     $ @param->[Str] message - Status message.
+     $ @param data - Body data.
+    $!!
     pu f: Response(code->Int, message->Str, data) {
         th.code = code;
         th.message = message;
         th.data = data;
+        th.headers = {};
     }
 
+    !!$
+     $ Sets the status code, with optional body and message.
+     $ Shapes: status(code), status(code, body), status(code, body, message).
+     $ @param->[Int] code - HTTP status code.
+     $ @param rest - Optional body plus message.
+     $ @returns->[Response] The same Response for chaining.
+    $!!
+    pu f: status(code->Int, ...rest)->Response {
+        th.code = code;
+        i: (rest.len() > 0) {
+            th.data = rest[0];
+        }
+        i: (rest.len() > 1) {
+            th.message = rest[1];
+        }
+        r: (th);
+    }
+
+    !!$
+     $ Sets the body as data.
+     $ @param data - Body data.
+     $ @returns->[Response] The same Response for chaining.
+    $!!
+    pu f: json(data)->Response {
+        th.data = data;
+        r: (th);
+    }
+
+    !!$
+     $ Sets the body to send.
+     $ @param body - Body data.
+     $ @returns->[Response] The same Response for chaining.
+    $!!
+    pu f: send(body)->Response {
+        th.data = body;
+        r: (th);
+    }
+
+    !!$
+     $ Serializes code, message, data and headers.
+     $ @returns The response entry.
+    $!!
     pu f: toJson() {
-        r: (["code"=>th.code, "message"=>th.message, "data"=>th.data]);
+        r: (["code"=>th.code, "message"=>th.message, "data"=>th.data, "headers"=>th.headers]);
     }
 
+    !!$
+     $ Appends a response header pair. Duplicates allowed
+     $ (example: Set-Cookie). Used by cors, security and cookies.
+     $ @returns The same Response for chaining.
+    $!!
+    pu f: setHeader(name->Str, value->Str)->Response {
+        th.headers = th.headers + {[ "name" => name, "value" => value ]};
+        r: (th);
+    }
+
+    !!$
+     $ Looks up a response header value by name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: getHeader(name->Str) {
+        fe: (v: entry <= th.headers) {
+            i: (entry.name == name) {
+                r: (entry.value);
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Builds a 200 OK response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: ok(data, customMessage->Str)->Response {
         v: msg = "OK";
         i: (customMessage != null) {
@@ -21,6 +133,12 @@ out cs: Response {
         r: (n: Response(200, msg, data));
     }
 
+    !!$
+     $ Builds a 201 Created response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: created(data, customMessage->Str)->Response {
         v: msg = "Created";
         i: (customMessage != null) {
@@ -29,6 +147,12 @@ out cs: Response {
         r: (n: Response(201, msg, data));
     }
 
+    !!$
+     $ Builds a 202 Accepted response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: accepted(data, customMessage->Str)->Response {
         v: msg = "Accepted";
         i: (customMessage != null) {
@@ -37,6 +161,11 @@ out cs: Response {
         r: (n: Response(202, msg, data));
     }
 
+    !!$
+     $ Builds a 204 No Content response.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: noContent(customMessage->Str)->Response {
         v: msg = "No Content";
         i: (customMessage != null) {
@@ -45,6 +174,12 @@ out cs: Response {
         r: (n: Response(204, msg, null));
     }
 
+    !!$
+     $ Builds a 400 Bad Request response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: badRequest(data, customMessage->Str)->Response {
         v: msg = "Bad Request";
         i: (customMessage != null) {
@@ -53,6 +188,12 @@ out cs: Response {
         r: (n: Response(400, msg, data));
     }
 
+    !!$
+     $ Builds a 401 Unauthorized response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: unauthorized(data, customMessage->Str)->Response {
         v: msg = "Unauthorized";
         i: (customMessage != null) {
@@ -61,6 +202,12 @@ out cs: Response {
         r: (n: Response(401, msg, data));
     }
 
+    !!$
+     $ Builds a 403 Forbidden response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: forbidden(data, customMessage->Str)->Response {
         v: msg = "Forbidden";
         i: (customMessage != null) {
@@ -69,6 +216,12 @@ out cs: Response {
         r: (n: Response(403, msg, data));
     }
 
+    !!$
+     $ Builds a 404 Not Found response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: notFound(data, customMessage->Str)->Response {
         v: msg = "Not Found";
         i: (customMessage != null) {
@@ -77,6 +230,12 @@ out cs: Response {
         r: (n: Response(404, msg, data));
     }
 
+    !!$
+     $ Builds a 405 Method Not Allowed response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: methodNotAllowed(data, customMessage->Str)->Response {
         v: msg = "Method Not Allowed";
         i: (customMessage != null) {
@@ -85,6 +244,12 @@ out cs: Response {
         r: (n: Response(405, msg, data));
     }
 
+    !!$
+     $ Builds a 409 Conflict response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: conflict(data, customMessage->Str)->Response {
         v: msg = "Conflict";
         i: (customMessage != null) {
@@ -93,6 +258,12 @@ out cs: Response {
         r: (n: Response(409, msg, data));
     }
 
+    !!$
+     $ Builds a 500 Internal Server Error response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: internalServerError(data, customMessage->Str)->Response {
         v: msg = "Internal Server Error";
         i: (customMessage != null) {
@@ -101,6 +272,12 @@ out cs: Response {
         r: (n: Response(500, msg, data));
     }
 
+    !!$
+     $ Builds a 501 Not Implemented response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: notImplemented(data, customMessage->Str)->Response {
         v: msg = "Not Implemented";
         i: (customMessage != null) {
@@ -109,6 +286,12 @@ out cs: Response {
         r: (n: Response(501, msg, data));
     }
 
+    !!$
+     $ Builds a 503 Service Unavailable response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: serviceUnavailable(data, customMessage->Str)->Response {
         v: msg = "Service Unavailable";
         i: (customMessage != null) {
@@ -117,6 +300,12 @@ out cs: Response {
         r: (n: Response(503, msg, data));
     }
 
+    !!$
+     $ Builds a 504 Gateway Timeout response.
+     $ @param data - Body data.
+     $ @param->[Str] customMessage - Custom message, or null for the default.
+     $ @returns->[Response] A new Response.
+    $!!
     pu f: gatewayTimeout(data, customMessage->Str)->Response {
         v: msg = "Gateway Timeout";
         i: (customMessage != null) {
@@ -125,11 +314,4 @@ out cs: Response {
         r: (n: Response(504, msg, data));
     }
 
-    pu f: status(code->Int, data, customMessage->Str)->Response {
-        v: msg = "Custom Response";
-        i: (customMessage != null) {
-            msg = customMessage;
-        }
-        r: (n: Response(code, msg, data));
-    }
 }

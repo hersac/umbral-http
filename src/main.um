@@ -1,9 +1,36 @@
+!! umbral-http: Express-style backend framework for Umbral.
+!! Entry point of the http package (umpkg.yml main).
+!! Re-exports Request, Response, Router, Route, Next, shared types,
+!! middlewares (logger, cors, securityHeaders) and security helpers
+!! (TokenStore, RateStore, issueToken, verifyToken, checkRate,
+!! getCookie, forward). Every item carries its own umdocs; run
+!! umbral --doc src/<File>.um to read them.
 equip { Request } origin 'Request.um';
 equip { Response } origin 'Response.um';
 equip { Router } origin 'Router.um';
+equip { Route } origin 'Route.um';
 equip { Next } origin 'Next.um';
+equip { Http } origin 'Http.um';
+equip { QueryParams, PathParams, HttpError } origin 'Types.um';
+equip { logger, cors, securityHeaders } origin 'Middlewares.um';
+equip { TokenStore, RateStore, issueToken, verifyToken, checkRate, getCookie, forward } origin 'Security.um';
 
 out Request;
 out Response;
 out Router;
+out Route;
 out Next;
+out Http;
+out QueryParams;
+out PathParams;
+out HttpError;
+out logger;
+out cors;
+out securityHeaders;
+out TokenStore;
+out RateStore;
+out issueToken;
+out verifyToken;
+out checkRate;
+out getCookie;
+out forward;

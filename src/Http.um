@@ -1,0 +1,449 @@
+!!$
+ $ Application entry point, Express style.
+ $ Create it, register routes, then start the server:
+ $   c: app = n: Http();
+ $   app.get("/", root);
+ $   awa: app.onReady(3000, ready);
+ $ Handlers are named functions as fn(request, res, next).
+ $ Umbral has no anonymous functions.
+$!!
+
+equip { Router } origin 'Router.um';
+equip { Request } origin 'Request.um';
+equip { Response } origin 'Response.um';
+equip { Next } origin 'Next.um';
+equip { Route } origin 'Route.um';
+
+out cs: Http {
+    !!$
+     $ Internal router holding routes and mounts.
+    $!!
+    pr: router;
+
+    !!$
+     $ Settings as a list of ["name" => ..., "value" => ...] pairs.
+    $!!
+    pr: settings;
+
+    !!$
+     $ Creates the application with default settings.
+    $!!
+    pu f: Http() {
+        th.router = n: Router();
+        th.settings = {};
+        th.settings = th.settings + {[ "name" => "host", "value" => "127.0.0.1" ]};
+    }
+
+    !!$
+     $ Stores a setting (example: host).
+     $ @param->[Str] name - Setting name.
+     $ @param value - Setting value.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: set(name->Str, value)->Http {
+        th.settings = th.settings + {[ "name" => name, "value" => value ]};
+        r: (th);
+    }
+
+    !!$
+     $ Reads a setting. Named setting() because get() is the HTTP verb.
+     $ @param->[Str] name - Setting name.
+     $ @returns The value, or null when missing.
+    $!!
+    pu f: setting(name->Str) {
+        fe: (v: item <= th.settings) {
+            i: (item.name == name) {
+                r: (item.value);
+            }
+        }
+        r: (null);
+    }
+
+    !!$
+     $ Starts a chained route for path.
+     $ @param->[Str] path - Route path (example: "/").
+     $ @returns->[Route] A Route bound to the internal router.
+    $!!
+    pu f: route(path->Str)->Route {
+        r: (th.router.route(path));
+    }
+
+    !!$
+     $ Registers a GET handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: get(path->Str, ...handlers)->Http {
+        th.router.get(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a POST handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: post(path->Str, ...handlers)->Http {
+        th.router.post(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a PUT handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: put(path->Str, ...handlers)->Http {
+        th.router.put(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a DELETE handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: delete(path->Str, ...handlers)->Http {
+        th.router.delete(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers a PATCH handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: patch(path->Str, ...handlers)->Http {
+        th.router.patch(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Registers an OPTIONS handler. Express order: middlewares first,
+     $ handler last.
+     $ @param->[Str] path - Route path.
+     $ @param handlers - Middlewares first, handler last.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: options(path->Str, ...handlers)->Http {
+        th.router.options(path, &handlers);
+        r: (th);
+    }
+
+    !!$
+     $ Mounts a sub-router, equivalent to use in Express.
+     $ Valid shapes: run(childRouter), run(path, childRouter),
+     $ run(path, middleware, childRouter).
+     $ @param args - Rest list: optional path, middlewares, child Router.
+     $ @throws Fails on empty args, non-Router last arg, or path not first.
+     $ @returns->[Http] The same Http for chaining.
+    $!!
+    pu f: run(...args)->Http {
+        th.router.run(&args);
+        r: (th);
+    }
+
+    !!$
+     $ Dispatches without sockets, useful for tests.
+     $ @param->[Str] path - Request path.
+     $ @param->[Str] method - HTTP verb in uppercase.
+     $ @param request - Request instance.
+     $ @returns The handler result, the res entry, or a 404 entry.
+    $!!
+    pu asy f: execute(path->Str, method->Str, request) {
+        v: outcome = awa: th.router.execute(path, method, request);
+        r: (outcome);
+    }
+
+    !!$
+     $ Lists registered local routes.
+     $ @returns The route entry list.
+    $!!
+    pu f: listRoutes() {
+        r: (th.router.listRoutes());
+    }
+
+    !!$
+     $ Starts the server on port with the configured host and fires the
+     $ ready callback once listening. Blocks forever serving one
+     $ connection at a time. Call it last with awa:.
+     $ Shapes: onReady(puerto, ready).
+     $ @param->[Int] port - TCP port.
+     $ @param callback - Function called as callback(port) once listening.
+     $ @returns Null on bind or listen failure, else never returns.
+    $!!
+    pu asy f: onReady(port->Int, ...rest) {
+        v: callback = null;
+        i: (rest.len() > 0) {
+            callback = rest[0];
+        }
+        v: host = th.setting("host");
+        v: done = awa: th.serveOn(host, port, callback);
+        r: (done);
+    }
+
+    pr asy f: serveOn(host, port, callback) {
+        v: server = Net.tcp();
+        server.set_reuse_address(true);
+        v: bound = server.bind(host, port);
+        i: (bound != true) {
+            tprint("Cannot bind &host:&port");
+            r: (null);
+        }
+        v: listening = server.listen(128);
+        i: (listening != true) {
+            tprint("Cannot listen on &host:&port");
+            r: (null);
+        }
+        tprint("Server listening on &host:&port");
+        i: (callback != null) {
+            v: signal = awa: callback(port);
+        }
+        wh: (true) {
+            v: tick = awa: th.serveOnce(server);
+        }
+        r: (null);
+    }
+
+    pr asy f: serveOnce(server) {
+        v: client = server.accept();
+        i: (client == null) {
+            r: (null);
+        }
+        v: raw = client.read(65536);
+        i: (raw == null) {
+            client.close();
+            r: (null);
+        }
+        v: req = th.parseRequest(raw);
+        i: (req == null) {
+            client.close();
+            r: (null);
+        }
+        v: result = awa: th.router.execute(req.url, req.method, req);
+        v: text = th.renderResult(result);
+        client.write(text);
+        client.close();
+        r: (null);
+    }
+
+    !!$
+     $ Parses raw HTTP text into a Request.
+     $ @param->[Str] raw - Raw request text.
+     $ @returns The Request, or null when malformed.
+    $!!
+    pr f: parseRequest(raw->Str) {
+        v: lines = Std.split(raw, "\r\n");
+        i: (Std.len(lines) == 0) {
+            r: (null);
+        }
+        v: first = lines[0];
+        v: wparts = Std.split(first, " ");
+        i: (Std.len(wparts) < 2) {
+            r: (null);
+        }
+        v: method = wparts[0];
+        v: target = wparts[1];
+        v: path = target;
+        v: query = "";
+        v: chunks = Std.split(target, "?");
+        i: (Std.len(chunks) > 1) {
+            path = chunks[0];
+            query = chunks[1];
+        }
+        v: req = n: Request(path, method);
+        v: total = Std.len(lines);
+        v: inBody = false;
+        fo: (v: i = 1; i < total; i++) {
+            v: line = lines[i];
+            i: (inBody != true) {
+                i: (line == "") {
+                    inBody = true;
+                } e: {
+                    th.parseHeader(req, line);
+                }
+            }
+        }
+        th.parseQuery(req, query);
+        th.parseBody(req, raw);
+        r: (req);
+    }
+
+    pr f: parseHeader(req, line->Str) {
+        v: hparts = Std.split(line, ":");
+        i: (Std.len(hparts) < 2) {
+            r: (null);
+        }
+        v: name = Std.trim(hparts[0]);
+        v: value = hparts[1];
+        v: htotal = Std.len(hparts);
+        fo: (v: hi = 2; hi < htotal; hi++) {
+            value = value + ":" + hparts[hi];
+        }
+        req.setHeader(name, Std.trim(value));
+        r: (null);
+    }
+
+    pr f: parseQuery(req, query->Str) {
+        i: (query == "") {
+            r: (null);
+        }
+        v: pairs = Std.split(query, "&");
+        fe: (v: pair <= pairs) {
+            v: qparts = Std.split(pair, "=");
+            v: key = Std.trim(qparts[0]);
+            v: val = "";
+            i: (Std.len(qparts) > 1) {
+                val = qparts[1];
+                v: qtotal = Std.len(qparts);
+                fo: (v: qi = 2; qi < qtotal; qi++) {
+                    val = val + "=" + qparts[qi];
+                }
+            }
+            req.setQuery(key, val);
+        }
+        r: (null);
+    }
+
+    pr f: parseBody(req, raw->Str) {
+        v: bparts = Std.split(raw, "\r\n\r\n");
+        i: (Std.len(bparts) < 2) {
+            r: (null);
+        }
+        v: text = bparts[1];
+        v: btotal = Std.len(bparts);
+        fo: (v: bi = 2; bi < btotal; bi++) {
+            text = text + "\r\n\r\n" + bparts[bi];
+        }
+        i: (th.isJson(req) == true) {
+            v: parsed = text.parse();
+            i: (parsed != null) {
+                req.setBody(parsed);
+                r: (null);
+            }
+        }
+        req.setBody(text);
+        r: (null);
+    }
+
+    pr f: isJson(req) {
+        fe: (v: entry <= req.headers) {
+            i: (Std.to_lower(entry.name) == "content-type") {
+                i: (Std.contains(Std.to_lower(entry.value), "application/json") == true) {
+                    r: (true);
+                }
+            }
+        }
+        r: (false);
+    }
+
+    !!$
+     $ Renders a dispatch result as raw HTTP/1.1 text.
+     $ @param outcome - Handler value or response entry.
+     $ @returns Raw response text.
+    $!!
+    pr f: renderResult(outcome) {
+        v: code = 200;
+        v: data = outcome;
+        v: hdrs = {};
+        v: keys = Std.keys(outcome);
+        i: (th.hasKey(keys, "code") == true) {
+            code = outcome.code;
+            data = outcome.data;
+        }
+        i: (th.hasKey(keys, "headers") == true) {
+            hdrs = outcome.headers;
+        }
+        v: bodyText = "";
+        v: jsonBody = false;
+        i: (data == null) {
+            bodyText = "";
+        } ie: (Std.trim(data) != null) {
+            bodyText = data;
+        } ie: (data == true) {
+            bodyText = "true";
+        } ie: (data == false) {
+            bodyText = "false";
+        } ie: (Std.abs(data) != null) {
+            bodyText = Std.to_string(data);
+        } e: {
+            v: encoded = data.json();
+            i: (encoded != null) {
+                bodyText = encoded;
+                jsonBody = true;
+            }
+        }
+        v: phrase = th.reason(code);
+        v: size = Std.len(bodyText);
+        v: page = "HTTP/1.1 &code &phrase\r\n";
+        fe: (v: entry <= hdrs) {
+            v: hname = entry.name;
+            v: hvalue = entry.value;
+            page = page + "&hname: &hvalue\r\n";
+        }
+        i: (jsonBody == true) {
+            page = page + "Content-Type: application/json\r\n";
+        }
+        page = page + "Content-Length: &size\r\n";
+        page = page + "Connection: close\r\n";
+        page = page + "\r\n";
+        page = page + bodyText;
+        r: (page);
+    }
+
+    pr f: hasKey(keys, name->Str) {
+        fe: (v: key <= keys) {
+            i: (key == name) {
+                r: (true);
+            }
+        }
+        r: (false);
+    }
+
+    pr f: reason(code->Int) {
+        i: (code == 200) {
+            r: ("OK");
+        }
+        i: (code == 201) {
+            r: ("Created");
+        }
+        i: (code == 204) {
+            r: ("No Content");
+        }
+        i: (code == 400) {
+            r: ("Bad Request");
+        }
+        i: (code == 401) {
+            r: ("Unauthorized");
+        }
+        i: (code == 403) {
+            r: ("Forbidden");
+        }
+        i: (code == 404) {
+            r: ("Not Found");
+        }
+        i: (code == 405) {
+            r: ("Method Not Allowed");
+        }
+        i: (code == 429) {
+            r: ("Too Many Requests");
+        }
+        i: (code == 500) {
+            r: ("Internal Server Error");
+        }
+        i: (code == 503) {
+            r: ("Service Unavailable");
+        }
+        r: ("Unknown");
+    }
+}

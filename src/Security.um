@@ -1,0 +1,199 @@
+!!$
+ $ Stateful security helpers.
+ $ Umbral has no closures and no writable module globals, so shared
+ $ state lives in store instances owned by the user file: create one,
+ $ wire it explicitly in handlers. JWT stays in its own library;
+ $ databases stay in theirs (umpsqr, ummongo, ummaria, umraven).
+ $ Example:
+ $   c: tokens = n: TokenStore();
+ $   c: limit = n: RateStore(100, 60000);
+ $!!
+
+out cs: TokenStore {
+    !!$
+     $ Stored tokens as a list of ["value" => ..., "expires" => ...] entries.
+    $!!
+    pr: tokens;
+
+    !!$
+     $ Creates an empty token store.
+    $!!
+    pu f: TokenStore() {
+        th.tokens = {};
+    }
+
+    !!$
+     $ Issues an opaque token. Entropy comes from Std.random() plus
+     $ Std.timestamp(): good enough for CSRF, not for auth tokens.
+     $ @param->[Int] ttlMs - Lifetime in milliseconds.
+     $ @returns->[Str] The token string.
+    $!!
+    pu f: issue(ttlMs->Int) {
+        v: stamp = Std.to_string(Std.timestamp());
+        v: salt = Std.to_string(Std.random());
+        v: token = stamp + "-" + salt;
+        v: expires = Std.timestamp() + ttlMs;
+        th.tokens = th.tokens + {[ "value" => token, "expires" => expires ]};
+        r: (token);
+    }
+
+    !!$
+     $ Consumes a token once. Expired tokens fail and are dropped.
+     $ @param->[Str] token - Token to consume.
+     $ @returns->[Bool] True when the token was valid.
+    $!!
+    pu f: consume(token->Str) {
+        v: now = Std.timestamp();
+        v: kept = {};
+        v: found = false;
+        fe: (v: item <= th.tokens) {
+            i: (item.value == token) {
+                i: (item.expires > now) {
+                    found = true;
+                }
+            } e: {
+                i: (item.expires > now) {
+                    kept = kept + {item};
+                }
+            }
+        }
+        th.tokens = kept;
+        r: (found);
+    }
+}
+
+out cs: RateStore {
+    !!$
+     $ Window entries as a list of name/count/start entries.
+    $!!
+    pr: entries;
+
+    !!$
+     $ Max hits per window.
+    $!!
+    pr: limit->Int;
+
+    !!$
+     $ Window size in milliseconds.
+    $!!
+    pr: windowMs->Int;
+
+    !!$
+     $ Creates a fixed-window rate store.
+     $ @param->[Int] limit - Max hits per window.
+     $ @param->[Int] windowMs - Window size in milliseconds.
+    $!!
+    pu f: RateStore(limit->Int, windowMs->Int) {
+        th.entries = {};
+        th.limit = limit;
+        th.windowMs = windowMs;
+    }
+
+    !!$
+     $ Records a hit for key (example: client ip).
+     $ @param->[Str] key - Bucket key.
+     $ @returns->[Bool] True when allowed, false when over the limit.
+    $!!
+    pu f: hit(key->Str) {
+        v: now = Std.timestamp();
+        v: kept = {};
+        v: count = 0;
+        v: start = now;
+        fe: (v: item <= th.entries) {
+            i: (item.name == key) {
+                count = item.count;
+                start = item.start;
+            } e: {
+                kept = kept + {item};
+            }
+        }
+        i: (now - start > th.windowMs) {
+            count = 0;
+            start = now;
+        }
+        i: (count >= th.limit) {
+            th.entries = kept + {[ "name" => key, "count" => count, "start" => start ]};
+            r: (false);
+        }
+        th.entries = kept + {[ "name" => key, "count" => count + 1, "start" => start ]};
+        r: (true);
+    }
+}
+
+!!$
+ $ Issues a CSRF token from a user owned store.
+ $ Send it to the client (example: Set-Cookie header or body) and
+ $ require it back on mutations.
+ $ @param store - TokenStore instance owned by the user file.
+ $ @param->[Int] ttlMs - Lifetime in milliseconds.
+ $ @returns->[Str] The token string.
+$!!
+out f: issueToken(store, ttlMs->Int) {
+    r: (store.issue(ttlMs));
+}
+
+!!$
+ $ Verifies a CSRF token once (double-submit pattern).
+ $ Compare it against the cookie or body value in the handler.
+ $ @param store - TokenStore instance owned by the user file.
+ $ @param->[Str] token - Token to verify.
+ $ @returns->[Bool] True when the token was valid.
+$!!
+out f: verifyToken(store, token->Str) {
+    r: (store.consume(token));
+}
+
+!!$
+ $ Rate limit check against a user owned store.
+ $ @param store - RateStore instance owned by the user file.
+ $ @param->[Str] key - Bucket key (example: client ip).
+ $ @returns->[Bool] True when allowed, false when over the limit.
+$!!
+out f: checkRate(store, key->Str) {
+    r: (store.hit(key));
+}
+
+!!$
+ $ Reads a cookie value from the Cookie header.
+ $ @param req - Request instance.
+ $ @param->[Str] name - Cookie name.
+ $ @returns The value, or null when missing.
+$!!
+out f: getCookie(req, name->Str) {
+    v: header = req.getHeader("Cookie");
+    i: (header == null) {
+        r: (null);
+    }
+    v: pairs = Std.split(header, ";");
+    fe: (v: pair <= pairs) {
+        v: parts = Std.split(pair, "=");
+        i: (Std.len(parts) >= 2) {
+            v: key = Std.trim(parts[0]);
+            i: (key == name) {
+                v: val = parts[1];
+                v: total = Std.len(parts);
+                fo: (v: i = 2; i < total; i++) {
+                    val = val + "=" + parts[i];
+                }
+                r: (Std.trim(val));
+            }
+        }
+    }
+    r: (null);
+}
+
+!!$
+ $ Minimal reverse proxy over the native pulse client.
+ $ Forwards method, path and body to target. Headers are not
+ $ forwarded: pass an explicit literal entry when needed, because
+ $ pair lists cannot convert to header entries in Umbral.
+ $ @param->[Str] target - Base url (example: "http://127.0.0.1:9000").
+ $ @param req - Incoming request.
+ $ @param headers - Literal headers entry or null.
+ $ @returns The pulse response entry.
+$!!
+out asy f: forward(target->Str, req, headers) {
+    v: url = target + req.url;
+    v: upstream = awa: pulse(url, req.method, req.body, headers);
+    r: (upstream);
+}
