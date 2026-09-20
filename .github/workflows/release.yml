@@ -1,0 +1,87 @@
+name: Release
+
+# Flujo similar al del proyecto umbral (~/Documentos/Desarrollo Personal/umbral):
+# en umbral la release se publica al pushear un tag v* (ver .github/workflows/release.yml).
+# Aquí además se automatiza el paso previo: al mezclar (push) a main se lee la
+# versión de umpkg.yml, se crea el tag vX.Y.Z correspondiente si no existe y se
+# publica la release de producción con el paquete del proyecto.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver versión y tag
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            # Disparo por tag (flujo manual, igual que en umbral)
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            echo "Disparo por tag: $TAG"
+          else
+            # Disparo por push/merge a main: la fuente de verdad es umpkg.yml
+            VERSION="$(grep -E '^[[:space:]]*version:' umpkg.yml | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?' | head -n1)"
+            if [ -z "$VERSION" ]; then
+              echo "::error::no se pudo leer version desde umpkg.yml"
+              exit 1
+            fi
+            TAG="v${VERSION}"
+            echo "Disparo por push a main, versión en umpkg.yml: $VERSION -> tag $TAG"
+          fi
+          # Validación básica semver (X.Y.Z con sufijos opcionales -rc.1 / +meta)
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+            echo "::error::versión inválida en umpkg.yml/tag: '$VERSION' (se espera X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Crear tag si no existe (solo push a main)
+        if: startsWith(github.ref, 'refs/heads/main')
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags origin
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "El tag $TAG ya existe, no se crea de nuevo."
+          else
+            echo "Creando y publicando tag $TAG..."
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Empaquetar proyecto
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG="http-${VERSION}"
+          mkdir -p dist
+          # Zip incluye lo necesario para consumir el paquete: fuentes, manifiesto y README
+          zip -r "dist/${PKG}.zip" src umpkg.yml README.md
+          tar -czf "dist/${PKG}.tar.gz" src umpkg.yml README.md
+          echo "=== Contenido del paquete ==="
+          unzip -l "dist/${PKG}.zip"
+          tar -tzf "dist/${PKG}.tar.gz"
+
+      - name: Crear release de producción
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
