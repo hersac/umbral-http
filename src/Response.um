@@ -89,11 +89,22 @@ out cs: Response {
     }
 
     !!$
-     $ Serializes code, message, data and headers.
+     $ Returns the transport entry used by Router/Http.
+     $ This is NOT a JSON string: for the wire JSON string use the
+     $ native language method data.json() on the entry or on th.data.
+     $ @returns The response entry.
+    $!!
+    pu f: entry() {
+        r: (["code"=>th.code, "message"=>th.message, "data"=>th.data, "headers"=>th.headers]);
+    }
+
+    !!$
+     $ Deprecated alias of entry(), kept for compatibility.
+     $ Prefer entry(). For a JSON string use the native .json().
      $ @returns The response entry.
     $!!
     pu f: toJson() {
-        r: (["code"=>th.code, "message"=>th.message, "data"=>th.data, "headers"=>th.headers]);
+        r: (th.entry());
     }
 
     !!$

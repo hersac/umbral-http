@@ -325,6 +325,8 @@ out cs: Http {
         fo: (v: bi = 2; bi < btotal; bi++) {
             text = text + "\r\n\r\n" + bparts[bi];
         }
+        !! Body parsing delegates to the language method Str.parse():
+        !! valid JSON becomes native data, anything else stays as text. !!
         i: (th.isJson(req) == true) {
             v: parsed = text.parse();
             i: (parsed != null) {
@@ -349,6 +351,10 @@ out cs: Http {
 
     !!$
      $ Renders a dispatch result as raw HTTP/1.1 text.
+     $ Body serialization delegates to the language methods:
+     $ data.json() for JSON (entries, lists, class instances,
+     $ numbers, bools, JSON strings) and data.text() as plain-text
+     $ fallback (plain strings). No custom string/number branching.
      $ @param outcome - Handler value or response entry.
      $ @returns Raw response text.
     $!!
@@ -368,19 +374,16 @@ out cs: Http {
         v: jsonBody = false;
         i: (data == null) {
             bodyText = "";
-        } ie: (Std.trim(data) != null) {
-            bodyText = data;
-        } ie: (data == true) {
-            bodyText = "true";
-        } ie: (data == false) {
-            bodyText = "false";
-        } ie: (Std.abs(data) != null) {
-            bodyText = Std.to_string(data);
         } e: {
             v: encoded = data.json();
             i: (encoded != null) {
                 bodyText = encoded;
                 jsonBody = true;
+            } e: {
+                v: t = data.text();
+                i: (t != null) {
+                    bodyText = t;
+                }
             }
         }
         v: phrase = th.reason(code);

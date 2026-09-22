@@ -174,7 +174,7 @@ asy f: findAll(req->Request, res->Response, next->Next) {
         next.withError(n: HttpError(500, "fetch failed", null));
         r: (null);
     }
-    res.status(200, response.json());
+    res.status(200, response);
 }
 
 asy f: findById(req->Request, res->Response, next->Next) {
@@ -184,7 +184,7 @@ asy f: findById(req->Request, res->Response, next->Next) {
         res.status(404, ["error" => "User not found"]);
         r: (null);
     }
-    res.status(200, response.json());
+    res.status(200, response);
 }
 ```
 
@@ -192,8 +192,10 @@ Notes:
 
 - Import service classes and instantiate them locally. Importing a singleton
   instance does not carry its methods.
-- `response.json()` works on entries and lists (native). Services should
-  return plain data, not class instances.
+- Services should return plain data, not class instances. Pass it directly:
+  `res.status(200, response)`. The wire JSON is produced by `Http` with the
+  native language methods (`data.json()` / `data.text()`); calling
+  `response.json()` beforehand is optional.
 - `tw:` inside `asy` functions does not propagate (the runtime returns null).
   Signal failures with return values plus `next.withError()`, or with `res`
   directly. Sync throws become `500` entries automatically.
@@ -233,8 +235,12 @@ return a value to send that value instead.
 | `status(code)` / `status(code, body)` / `status(code, body, message)` | Sets status, chainable. |
 | `json(data)` / `send(body)` | Sets the body, chainable. |
 | `setHeader(name, value)` / `getHeader(name)` | Header pairs. |
-| `toJson()` | Serializes the entry. |
+| `entry()` | Transport entry (`toJson()` is a deprecated alias). For the wire JSON string use the native `.json()`. |
 | `ok/created/accepted/noContent/badRequest/unauthorized/forbidden/notFound/methodNotAllowed/conflict/internalServerError/notImplemented/serviceUnavailable/gatewayTimeout(data, message)` | Factory helpers returning a new Response. |
+
+Body serialization lives in `Http.renderResult()` and delegates to the
+language: `data.json()` for JSON bodies, `data.text()` as plain-text
+fallback. Request bodies use `text.parse()` when `Content-Type` is JSON.
 
 ```umbral
 res.status(200, ["users" => users]);
@@ -330,8 +336,9 @@ equip { QueryParams, PathParams, HttpError } origin 'http';
 
 `QueryParams` and `PathParams` wrap entries in a list, so typed annotations
 validate (`c: filters->QueryParams = req.query;`). `HttpError(status, message,
-details)` travels through `tw:` (sync) and `next.withError()`, serializes with
-`toJson()`.
+details)` travels through `tw:` (sync) and `next.withError()`, exposes the
+transport entry with `entry()` (`toJson()` is a deprecated alias) and the wire
+JSON string with the native `.json()`.
 
 ## External APIs and proxy
 

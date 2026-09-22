@@ -170,10 +170,21 @@ out cs: HttpError {
     }
 
     !!$
-     $ Serializes the error.
+     $ Returns the transport entry.
+     $ This is NOT a JSON string: for the wire JSON string use the
+     $ native language method err.json().
+     $ @returns The error entry.
+    $!!
+    pu f: entry() {
+        r: (["status" => th.status, "message" => th.message, "details" => th.details]);
+    }
+
+    !!$
+     $ Deprecated alias of entry(), kept for compatibility.
+     $ Prefer entry(). For a JSON string use the native .json().
      $ @returns The error entry.
     $!!
     pu f: toJson() {
-        r: (["status" => th.status, "message" => th.message, "details" => th.details]);
+        r: (th.entry());
     }
 }

@@ -268,7 +268,7 @@ out cs: Router {
             i: (done.value != null) {
                 r: (done.value);
             }
-            r: (res.toJson());
+            r: (res.entry());
         }
         v: delegated = awa: th.delegate(path, method, request, res, next);
         i: (delegated != null) {
