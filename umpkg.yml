@@ -1,5 +1,5 @@
 name: http
-version: 2.0.1
+version: 2.1.1
 description: Express-style backend framework for Umbral
 umbral: ">=1.5.7"
 main: src/main.um

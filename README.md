@@ -1,4 +1,4 @@
-# http v2.0.1 — Express-style backend framework for Umbral
+# http v2.1.1 — Express-style backend framework for Umbral
 
 Build HTTP backends in Umbral: routers with chained routes, sub-router mounting,
 typed controllers, middlewares, CORS, CSRF tokens, rate limiting, cookies and a
@@ -192,10 +192,10 @@ Notes:
 
 - Import service classes and instantiate them locally. Importing a singleton
   instance does not carry its methods.
-- Services should return plain data, not class instances. Pass it directly:
-  `res.status(200, response)`. The wire JSON is produced by `Http` with the
-  native language methods (`data.json()` / `data.text()`); calling
-  `response.json()` beforehand is optional.
+- Services should return plain data, not class instances. JSON only goes to
+  the browser if you serialize explicitly: `res.status(200, response.json())`.
+  With `res.status(200, response)` the body is the text form (`data.text()`),
+  e.g. `[User([...]), ...]`, which `fetch().json()` cannot parse.
 - `tw:` inside `asy` functions does not propagate (the runtime returns null).
   Signal failures with return values plus `next.withError()`, or with `res`
   directly. Sync throws become `500` entries automatically.
@@ -238,9 +238,17 @@ return a value to send that value instead.
 | `entry()` | Transport entry (`toJson()` is a deprecated alias). For the wire JSON string use the native `.json()`. |
 | `ok/created/accepted/noContent/badRequest/unauthorized/forbidden/notFound/methodNotAllowed/conflict/internalServerError/notImplemented/serviceUnavailable/gatewayTimeout(data, message)` | Factory helpers returning a new Response. |
 
-Body serialization lives in `Http.renderResult()` and delegates to the
-language: `data.json()` for JSON bodies, `data.text()` as plain-text
-fallback. Request bodies use `text.parse()` when `Content-Type` is JSON.
+Body serialization lives in `Http.renderResult()` in explicit-JSON mode and
+delegates to the language: `Str` bodies go as-is (call `.json()` explicitly
+to send JSON, which also sets `Content-Type: application/json` when the
+string parses via `.parse()`); any other value goes via `.text()`, so raw
+objects arrive as their text form (example: `[User([...]), ...]`) and NOT as
+JSON. Request bodies use `text.parse()` when `Content-Type` is JSON.
+
+```umbral
+res.status(200, response.json()); !! JSON en el navegador !!
+res.status(200, response);        !! texto tal cual: [User([...]), ...] !!
+```
 
 ```umbral
 res.status(200, ["users" => users]);

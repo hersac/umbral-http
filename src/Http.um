@@ -351,10 +351,13 @@ out cs: Http {
 
     !!$
      $ Renders a dispatch result as raw HTTP/1.1 text.
-     $ Body serialization delegates to the language methods:
-     $ data.json() for JSON (entries, lists, class instances,
-     $ numbers, bools, JSON strings) and data.text() as plain-text
-     $ fallback (plain strings). No custom string/number branching.
+     $ Explicit-JSON mode: the wire body is whatever the handler
+     $ stored. Str bodies go as-is (call .json() explicitly to send
+     $ JSON); any other value goes via the language method .text(),
+     $ so raw objects arrive as their text form (example:
+     $ [User([...]), ...]) and NOT as JSON. Content-Type
+     $ application/json is set only when the stored Str parses as
+     $ JSON via the language method .parse().
      $ @param outcome - Handler value or response entry.
      $ @returns Raw response text.
     $!!
@@ -374,16 +377,16 @@ out cs: Http {
         v: jsonBody = false;
         i: (data == null) {
             bodyText = "";
-        } e: {
-            v: encoded = data.json();
-            i: (encoded != null) {
-                bodyText = encoded;
+        } ie: (Std.trim(data) != null) {
+            bodyText = data;
+            v: probe = data.parse();
+            i: (probe != null) {
                 jsonBody = true;
-            } e: {
-                v: t = data.text();
-                i: (t != null) {
-                    bodyText = t;
-                }
+            }
+        } e: {
+            v: t = data.text();
+            i: (t != null) {
+                bodyText = t;
             }
         }
         v: phrase = th.reason(code);
