@@ -1,4 +1,4 @@
-# http v2.0.0 — Express-style backend framework for Umbral
+# http v2.0.1 — Express-style backend framework for Umbral
 
 Build HTTP backends in Umbral: routers with chained routes, sub-router mounting,
 typed controllers, middlewares, CORS, CSRF tokens, rate limiting, cookies and a
